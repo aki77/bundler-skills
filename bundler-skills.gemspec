@@ -6,7 +6,7 @@ Gem::Specification.new do |spec|
   spec.name = "bundler-skills"
   spec.version = BundlerSkills::VERSION
   spec.authors = ["aki77"]
-  spec.email = ["akira@sonicgarden.jp"]
+  spec.email = ["aki77@users.noreply.github.com"]
 
   spec.summary = "Auto-symlink AI agent skills bundled in your gems after bundle install."
   spec.description = "A Bundler plugin that discovers skills/ directories bundled in your " \
