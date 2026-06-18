@@ -3,8 +3,16 @@
 module BundlerSkills
   # Loads bundler-skills.yml and merges it with defaults.
   #
-  # Phase 1 skeleton: only the keys needed by Disabling are wired up. Later
-  # phases fill in agents / include / exclude / cleanup / recursive etc.
+  # The file is optional: a missing file yields an all-defaults Config so the
+  # hook works out of the box. Supported keys:
+  #   enabled    nil(auto) | true | false | [env names]
+  #   agents     nil(auto-detect) | "*" | [keys] | "key"
+  #   gitignore  bool (default true)
+  #   cleanup    bool (default true) — prune stale gem-*--* links
+  #   recursive  bool (default false) — scan skills/**/SKILL.md
+  #   include    [patterns]  — fnmatch on gem name or "gem/skill"
+  #   exclude    [patterns]  — same, wins over include
+  #   dry_run / force  bool
   class Config
     CONFIG_FILENAME = "bundler-skills.yml"
 
@@ -41,12 +49,20 @@ module BundlerSkills
       @data = data
     end
 
+    # nil | true | false | Array<String>. A bare string env name is normalized
+    # to a one-element array so `enabled: development` behaves like a list.
     def enabled
-      @data["enabled"]
+      value = @data["enabled"]
+      value.is_a?(String) ? [value] : value
     end
 
+    # nil (auto-detect) | Array<String>. A bare string key is wrapped so
+    # `agents: claude` works as well as a YAML list.
     def agents
-      @data["agents"]
+      value = @data["agents"]
+      return nil if value.nil?
+
+      Array(value).map(&:to_s)
     end
 
     def gitignore?

@@ -80,4 +80,45 @@ class ConfigTest < Minitest::Test
       assert_equal ["rubocop"], c.include_patterns
     end
   end
+
+  def test_agents_nil_stays_nil
+    assert_nil cfg.agents
+  end
+
+  def test_agents_string_is_wrapped
+    assert_equal ["claude"], cfg("agents" => "claude").agents
+  end
+
+  def test_agents_list_passthrough
+    assert_equal %w[claude cursor], cfg("agents" => %w[claude cursor]).agents
+  end
+
+  def test_enabled_string_becomes_list
+    assert_equal ["development"], cfg("enabled" => "development").enabled
+  end
+
+  def test_enabled_bool_and_nil_passthrough
+    assert_nil cfg.enabled
+    assert_equal true, cfg("enabled" => true).enabled
+    assert_equal false, cfg("enabled" => false).enabled
+    assert_equal %w[development staging], cfg("enabled" => %w[development staging]).enabled
+  end
+
+  def test_load_reads_agents_and_enabled
+    Dir.mktmpdir do |dir|
+      File.write(File.join(dir, "bundler-skills.yml"), <<~YAML)
+        enabled: development
+        agents:
+          - claude
+          - cursor
+        cleanup: false
+        recursive: true
+      YAML
+      c = BundlerSkills::Config.load(root: dir)
+      assert_equal ["development"], c.enabled
+      assert_equal %w[claude cursor], c.agents
+      refute c.cleanup?
+      assert c.recursive?
+    end
+  end
 end
