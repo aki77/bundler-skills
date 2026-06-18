@@ -37,6 +37,27 @@ module BundlerSkills
       )
     end
 
+    # Discover skills and the agents/dirs that would receive them, without
+    # touching the filesystem. Used by `bundle skills list`.
+    def plan
+      skills = Discoverer.new(specs: @specs, config: @config, logger: @logger).discover
+      agents = AgentRegistry.resolve(@root, @config)
+      Result.new(
+        discovered: skills, agents: agents,
+        links_by_dir: {}, gitignore_changed: false
+      )
+    end
+
+    # Remove every gem-*--* symlink we own across all known output dirs.
+    # Used by `bundle skills clean`. Returns { subdir => [removed names] }.
+    def clean
+      AgentRegistry.all.map(&:skills_subdir).uniq.to_h do |subdir|
+        skills_dir = File.join(@root.to_s, subdir)
+        linker = Linker.new(skills_dir: skills_dir, config: @config, logger: @logger)
+        [subdir, linker.clean_all]
+      end
+    end
+
     private
 
     def update_gitignore(subdirs)

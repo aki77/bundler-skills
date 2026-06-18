@@ -127,6 +127,20 @@ class LinkerTest < Minitest::Test
     end
   end
 
+  def test_clean_all_removes_owned_symlinks_only
+    Dir.mktmpdir do |dir|
+      s = skill(dir, "rubocop", "style")
+      l = linker(dir)
+      l.link([s])
+      skills_dir = File.join(dir, ".claude", "skills")
+      FileUtils.mkdir_p(File.join(skills_dir, "my-own-skill")) # unmanaged real dir
+      removed = l.clean_all
+      assert_equal ["gem-rubocop--style"], removed
+      refute File.exist?(File.join(skills_dir, "gem-rubocop--style"))
+      assert File.directory?(File.join(skills_dir, "my-own-skill"))
+    end
+  end
+
   def test_dry_run_makes_no_changes
     Dir.mktmpdir do |dir|
       s = skill(dir, "rubocop", "style")

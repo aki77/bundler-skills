@@ -42,6 +42,19 @@ module BundlerSkills
       result
     end
 
+    # Remove every gem-*--* symlink we own (for `bundle skills clean`).
+    # @return [Array<String>] removed link names
+    def clean_all
+      removed = []
+      Dir.glob(File.join(@skills_dir, STALE_GLOB)).each do |path|
+        next unless File.symlink?(path)
+
+        remove(path)
+        removed << File.basename(path)
+      end
+      removed
+    end
+
     private
 
     def ensure_dir

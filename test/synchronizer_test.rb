@@ -120,4 +120,32 @@ class SynchronizerTest < Minitest::Test
       refute File.exist?(File.join(dir, ".claude", "skills", "gem-rubocop--style"))
     end
   end
+
+  def test_plan_discovers_without_touching_fs
+    Dir.mktmpdir do |dir|
+      marker(dir, ".claude")
+      spec = fake_gem(dir, "rubocop", skills: %w[style])
+      result = BundlerSkills::Synchronizer.new(
+        root: dir, config: BundlerSkills::Config.new(BundlerSkills::Config::DEFAULTS),
+        logger: nil, specs: [spec]
+      ).plan
+      assert_equal 1, result.discovered.size
+      assert_equal %w[claude], result.agents.map(&:key)
+      refute File.exist?(File.join(dir, ".claude", "skills"))
+    end
+  end
+
+  def test_clean_removes_all_owned_links
+    Dir.mktmpdir do |dir|
+      marker(dir, ".claude")
+      spec = fake_gem(dir, "rubocop", skills: %w[style])
+      sync(dir, [spec])
+      removed = BundlerSkills::Synchronizer.new(
+        root: dir, config: BundlerSkills::Config.new(BundlerSkills::Config::DEFAULTS),
+        logger: nil, specs: [spec]
+      ).clean
+      assert_equal ["gem-rubocop--style"], removed[".claude/skills"]
+      refute File.exist?(File.join(dir, ".claude", "skills", "gem-rubocop--style"))
+    end
+  end
 end
