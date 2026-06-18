@@ -89,6 +89,27 @@ class SynchronizerTest < Minitest::Test
     end
   end
 
+  def test_updates_gitignore_for_active_dirs
+    Dir.mktmpdir do |dir|
+      marker(dir, ".claude")
+      spec = fake_gem(dir, "rubocop", skills: %w[style])
+      result = sync(dir, [spec])
+      assert result.gitignore_changed
+      content = File.read(File.join(dir, ".gitignore"))
+      assert_includes content, ".claude/skills/gem-*"
+      refute_includes content, ".agents/skills/gem-*" # cursor not present
+    end
+  end
+
+  def test_no_gitignore_when_no_agent
+    Dir.mktmpdir do |dir|
+      spec = fake_gem(dir, "rubocop", skills: %w[style])
+      result = sync(dir, [spec])
+      refute result.gitignore_changed
+      refute File.exist?(File.join(dir, ".gitignore"))
+    end
+  end
+
   def test_prunes_when_gem_removed
     Dir.mktmpdir do |dir|
       marker(dir, ".claude")

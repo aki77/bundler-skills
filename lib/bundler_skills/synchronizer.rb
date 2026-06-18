@@ -9,7 +9,7 @@ module BundlerSkills
   # output directory (.claude/skills and/or .agents/skills). Phase 4 adds the
   # .gitignore update.
   class Synchronizer
-    Result = Struct.new(:discovered, :agents, :links_by_dir, keyword_init: true)
+    Result = Struct.new(:discovered, :agents, :links_by_dir, :gitignore_changed, keyword_init: true)
 
     def initialize(root: Bundler.root, config: Config.load, logger: Bundler.ui, specs: nil)
       @root = root
@@ -28,11 +28,27 @@ module BundlerSkills
         [subdir, Linker.new(skills_dir: skills_dir, config: @config, logger: @logger).link(skills)]
       end
 
+      gitignore_changed = update_gitignore(subdirs)
+
       log_summary(skills, agents, links_by_dir)
-      Result.new(discovered: skills, agents: agents, links_by_dir: links_by_dir)
+      Result.new(
+        discovered: skills, agents: agents,
+        links_by_dir: links_by_dir, gitignore_changed: gitignore_changed
+      )
     end
 
     private
+
+    def update_gitignore(subdirs)
+      return false unless @config.gitignore?
+      return false if subdirs.empty?
+
+      patterns = subdirs.map { |subdir| "#{subdir}/#{DiscoveredSkill::LINK_PREFIX}*" }
+      GitignoreUpdater.new(
+        gitignore_path: File.join(@root.to_s, ".gitignore"),
+        dry_run: @config.dry_run?
+      ).ensure_patterns(patterns)
+    end
 
     def log_summary(skills, agents, links_by_dir)
       return unless @logger
