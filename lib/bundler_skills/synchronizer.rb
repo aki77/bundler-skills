@@ -1,15 +1,15 @@
 # frozen_string_literal: true
 
 module BundlerSkills
-  # Orchestrates discovery -> linking. Shared entry point for both the Hook
-  # (after-install-all) and the manual `bundle skills` command.
+  # Orchestrates discovery -> linking across the resolved agents. Shared entry
+  # point for both the Hook (after-install-all) and the manual `bundle skills`
+  # command.
   #
-  # Phase 2: single output directory (.claude/skills). Phase 3 generalizes this
-  # to the resolved agents via AgentRegistry; Phase 4 adds .gitignore updates.
+  # Discovery runs once (agent-independent); linking runs once per distinct
+  # output directory (.claude/skills and/or .agents/skills). Phase 4 adds the
+  # .gitignore update.
   class Synchronizer
-    CLAUDE_SKILLS_SUBDIR = ".claude/skills"
-
-    Result = Struct.new(:discovered, :links, keyword_init: true)
+    Result = Struct.new(:discovered, :agents, :links_by_dir, keyword_init: true)
 
     def initialize(root: Bundler.root, config: Config.load, logger: Bundler.ui, specs: nil)
       @root = root
@@ -20,22 +20,37 @@ module BundlerSkills
 
     def sync
       skills = Discoverer.new(specs: @specs, config: @config, logger: @logger).discover
-      skills_dir = File.join(@root.to_s, CLAUDE_SKILLS_SUBDIR)
-      link_result = Linker.new(skills_dir: skills_dir, config: @config, logger: @logger).link(skills)
-      log_summary(skills, link_result)
-      Result.new(discovered: skills, links: link_result)
+      agents = AgentRegistry.resolve(@root, @config)
+      subdirs = AgentRegistry.output_subdirs(agents)
+
+      links_by_dir = subdirs.to_h do |subdir|
+        skills_dir = File.join(@root.to_s, subdir)
+        [subdir, Linker.new(skills_dir: skills_dir, config: @config, logger: @logger).link(skills)]
+      end
+
+      log_summary(skills, agents, links_by_dir)
+      Result.new(discovered: skills, agents: agents, links_by_dir: links_by_dir)
     end
 
     private
 
-    def log_summary(skills, link_result)
+    def log_summary(skills, agents, links_by_dir)
       return unless @logger
 
-      created = link_result.created.size
-      pruned = link_result.pruned.size
+      if agents.empty?
+        @logger.info(
+          "[bundler-skills] #{skills.size} skill(s) discovered but no agent detected " \
+          "(.claude/.cursor/.codex/AGENTS.md/.github) — nothing linked"
+        )
+        return
+      end
+
+      created = links_by_dir.values.sum { |r| r.created.size }
+      pruned = links_by_dir.values.sum { |r| r.pruned.size }
       @logger.info(
         "[bundler-skills] #{skills.size} skill(s) discovered, " \
-        "#{created} linked, #{pruned} pruned"
+        "#{created} linked, #{pruned} pruned across #{links_by_dir.size} dir(s) " \
+        "(agents: #{agents.map(&:key).join(', ')})"
       )
     end
   end
