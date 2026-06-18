@@ -72,6 +72,7 @@ Use the command to sync manually, or to inspect/clean:
 bundle skills          # (or: bundle skills sync) re-create symlinks
 bundle skills list     # show discovered skills and target agents (no changes)
 bundle skills clean    # remove all gem-*--* symlinks this plugin created
+bundle skills init     # create a bundler-skills.yml config file with defaults
 bundle skills <cmd> --dry-run   # show what would change without writing
 ```
 

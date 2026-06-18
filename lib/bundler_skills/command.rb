@@ -9,14 +9,32 @@ module BundlerSkills
   class Command < Bundler::Plugin::API
     command "skills"
 
+    INIT_TEMPLATE = <<~YAML
+      # bundler-skills.yml — all keys are optional
+      #
+      # enabled:                    # nil (auto) | false (off) | [development] (env list)
+      # agents:                     # omit = auto-detect; or list: [claude, cursor]; or "*"
+      #   - claude
+      #   - cursor
+      # gitignore: true             # manage .gitignore (default true)
+      # cleanup: true               # prune stale gem-*--* links when a gem is removed (default true)
+      # recursive: false            # also scan skills/**/SKILL.md (default false)
+      # include:                    # only these gems (empty = all). fnmatch on "gem" or "gem/skill"
+      #   - rubocop
+      #   - "rails-*"
+      # exclude:                    # exclude these (wins over include)
+      #   - some-noisy-gem
+    YAML
+
     def exec(_command_name, args)
-      dry_run = args.delete("--dry-run") ? true : false
+      dry_run = !!args.delete("--dry-run")
       subcommand = args.shift || "sync"
 
       case subcommand
       when "sync" then run_sync(dry_run)
       when "list" then run_list
       when "clean" then run_clean(dry_run)
+      when "init" then run_init
       when "help", "-h", "--help" then print_help
       else
         Bundler.ui.error("[bundler-skills] unknown subcommand: #{subcommand}")
@@ -51,6 +69,17 @@ module BundlerSkills
       end
     end
 
+    def run_init
+      path = Bundler.root / Config::CONFIG_FILENAME
+      if File.exist?(path)
+        Bundler.ui.warn("[bundler-skills] #{Config::CONFIG_FILENAME} already exists")
+        return
+      end
+
+      File.write(path, INIT_TEMPLATE)
+      Bundler.ui.info("[bundler-skills] created #{Config::CONFIG_FILENAME}")
+    end
+
     def run_clean(dry_run)
       removed = synchronizer(dry_run: dry_run).clean
       total = removed.values.sum(&:size)
@@ -68,6 +97,7 @@ module BundlerSkills
           sync   (default) discover skills and (re)create symlinks
           list   show discovered skills and target agents (no changes)
           clean  remove all gem-*--* symlinks this plugin created
+          init   create a bundler-skills.yml config file with defaults
 
         Options:
           --dry-run   show what would change without writing
