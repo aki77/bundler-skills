@@ -1,0 +1,28 @@
+PATH
+  remote: .
+  specs:
+    bundler-skills (0.1.0)
+
+GEM
+  remote: https://rubygems.org/
+  specs:
+    minitest (5.27.0)
+    rake (13.4.2)
+
+PLATFORMS
+  arm64-darwin-23
+  ruby
+
+DEPENDENCIES
+  bundler-skills!
+  minitest (~> 5.0)
+  rake (~> 13.0)
+
+CHECKSUMS
+  bundler (4.0.13) sha256=19f08be7f27022cf0b89f27da0b044ae075e8270a9ef44ad248a932614e1ca3b
+  bundler-skills (0.1.0)
+  minitest (5.27.0)
+  rake (13.4.2)
+
+BUNDLED WITH
+  4.0.13

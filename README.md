@@ -150,6 +150,16 @@ reviewing any dependency.
 - Whether Cursor / Codex / Copilot follow symlinked `SKILL.md` during their own
   directory scans is not formally documented; verified working with Claude Code.
 
+## Development
+
+```sh
+bundle install
+bundle exec rake test          # unit tests
+bundle exec rake integration   # real bundle install end-to-end
+```
+
+See [CHANGELOG.md](CHANGELOG.md) for release notes.
+
 ## License
 
 MIT. See [LICENSE.txt](LICENSE.txt).

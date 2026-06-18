@@ -19,6 +19,7 @@ Gem::Specification.new do |spec|
 
   spec.metadata["homepage_uri"] = spec.homepage
   spec.metadata["source_code_uri"] = "#{spec.homepage}.git"
+  spec.metadata["changelog_uri"] = "#{spec.homepage}/blob/main/CHANGELOG.md"
   spec.metadata["rubygems_mfa_required"] = "true"
 
   # plugins.rb MUST be packaged for Bundler to recognize this as a plugin.
@@ -27,6 +28,7 @@ Gem::Specification.new do |spec|
     "lib/**/*.rb",
     "README.md",
     "PROPOSAL.md",
+    "CHANGELOG.md",
     "LICENSE*"
   ]
   spec.require_paths = ["lib"]
