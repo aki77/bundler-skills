@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-06-18
+
+### Added
+
+- `bundle skills init` command: creates a `bundler-skills.yml` config file with
+  all keys commented out, so users can enable only the options they need.
+
 ## [0.1.0] - 2026-06-18
 
 ### Added
