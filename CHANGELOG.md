@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-06-21
+
 ### Changed
 
 - Post-install summary now highlights runs that actually changed something:
