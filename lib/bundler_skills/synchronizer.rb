@@ -83,12 +83,42 @@ module BundlerSkills
       end
 
       created = links_by_dir.values.sum { |r| r.created.size }
+      relinked = links_by_dir.values.sum { |r| r.relinked.size }
       pruned = links_by_dir.values.sum { |r| r.pruned.size }
-      @logger.info(
+
+      message =
         "[bundler-skills] #{skills.size} skill(s) discovered, " \
-        "#{created} linked, #{pruned} pruned across #{links_by_dir.size} dir(s) " \
-        "(agents: #{agents.map(&:key).join(', ')})"
-      )
+        "#{created} linked, #{relinked} relinked, #{pruned} pruned " \
+        "across #{links_by_dir.size} dir(s) (agents: #{agents.map(&:key).join(', ')})"
+
+      # Make a run that actually changed something stand out (green) so it is
+      # noticed amid bundle's output; an unchanged run stays plain.
+      if links_by_dir.values.any?(&:changed?)
+        @logger.confirm(message)
+        # List the skills that changed so the user can review the (third-party)
+        # SKILL.md contents now linked into their project. created/relinked are
+        # in the discovery set so we can show their source path; pruned skills
+        # are already gone, so we show the name only.
+        log_changed_skills(skills, links_by_dir)
+      else
+        @logger.info(message)
+      end
+    end
+
+    def log_changed_skills(skills, links_by_dir)
+      source_by_link = skills.to_h { |s| [s.link_name, s.source_path] }
+
+      %i[created relinked pruned].each do |kind|
+        entries = links_by_dir.flat_map do |subdir, result|
+          result.public_send(kind).map { |name| [File.join(subdir, name), source_by_link[name]] }
+        end
+        next if entries.empty?
+
+        @logger.info("  #{kind}:")
+        entries.each do |path, source|
+          @logger.info(source ? "    #{path}  ->  #{source}" : "    #{path}")
+        end
+      end
     end
   end
 end

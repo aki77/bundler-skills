@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Post-install summary now highlights runs that actually changed something:
+  when skills are created, relinked (after a gem update), or pruned, the summary
+  line is printed in green (`confirm`) instead of plain text, and the count of
+  relinked skills is now shown alongside linked/pruned.
+- A changed run additionally lists each affected skill grouped by kind
+  (created / relinked / pruned), showing the path to its `SKILL.md`, so the
+  third-party skill contents linked into your project are easy to review.
+
 ## [0.2.0] - 2026-06-18
 
 ### Added

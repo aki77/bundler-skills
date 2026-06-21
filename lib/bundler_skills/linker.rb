@@ -22,6 +22,11 @@ module BundlerSkills
         @skipped = []
         @pruned = []
       end
+
+      # Did this run actually mutate the filesystem? kept/skipped are no-ops.
+      def changed?
+        created.any? || relinked.any? || pruned.any?
+      end
     end
 
     def initialize(skills_dir:, config: Config.new(Config::DEFAULTS), logger: nil)
