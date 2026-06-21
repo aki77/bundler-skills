@@ -56,7 +56,22 @@ bundle install
 That's it. On install you'll see something like:
 
 ```
-[bundler-skills] 3 skill(s) discovered, 3 linked, 0 pruned across 1 dir(s) (agents: claude)
+[bundler-skills] 3 skill(s) discovered, 3 linked, 0 relinked, 0 pruned across 1 dir(s) (agents: claude)
+```
+
+When a run actually changes something (links created, relinked after a gem
+update, or stale links pruned) the summary is printed in green so it stands out;
+a run with nothing to do prints the same line in plain text. A changed run also
+lists each affected skill, grouped by kind, with the path to its `SKILL.md` so
+you can review the (third-party) skill contents now linked into your project:
+
+```
+[bundler-skills] 3 skill(s) discovered, 2 linked, 1 relinked, 0 pruned across 1 dir(s) (agents: claude)
+  created:
+    .claude/skills/gem-rubocop--style  ->  /path/to/gems/rubocop/skills/style
+    .claude/skills/gem-rubocop--lint   ->  /path/to/gems/rubocop/skills/lint
+  relinked:
+    .claude/skills/gem-rspec--matchers  ->  /path/to/gems/rspec/skills/matchers
 ```
 
 > Alternatively, install it globally with `bundle plugin install bundler-skills`.

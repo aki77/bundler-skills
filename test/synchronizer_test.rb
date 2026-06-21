@@ -9,6 +9,21 @@ require "fileutils"
 class SynchronizerTest < Minitest::Test
   FakeSpec = Struct.new(:name, :version, :full_gem_path)
 
+  # Captures which summary channel was used: confirm (green, "something
+  # changed") vs info (plain, "nothing to do").
+  class CapturingLogger
+    attr_reader :confirmed, :infos
+
+    def initialize
+      @confirmed = []
+      @infos = []
+    end
+
+    def confirm(msg) = @confirmed << msg
+    def info(msg) = @infos << msg
+    def warn(msg) = nil
+  end
+
   def fake_gem(root, name, skills:)
     path = File.join(root, "gems", name)
     skills.each do |s|
@@ -132,6 +147,60 @@ class SynchronizerTest < Minitest::Test
       assert_equal 1, result.discovered.size
       assert_equal %w[claude], result.agents.map(&:key)
       refute File.exist?(File.join(dir, ".claude", "skills"))
+    end
+  end
+
+  def test_summary_uses_confirm_when_links_created
+    Dir.mktmpdir do |dir|
+      marker(dir, ".claude")
+      spec = fake_gem(dir, "rubocop", skills: %w[style])
+      logger = CapturingLogger.new
+      BundlerSkills::Synchronizer.new(
+        root: dir, config: BundlerSkills::Config.new(BundlerSkills::Config::DEFAULTS),
+        logger: logger, specs: [spec]
+      ).sync
+      assert_equal 1, logger.confirmed.size
+      assert_match(/1 linked, 0 relinked, 0 pruned/, logger.confirmed.first)
+      # The created skill is listed with its source path so the user can
+      # review the linked SKILL.md.
+      detail = logger.infos.join("\n")
+      assert_match(/created:/, detail)
+      assert_match(%r{\.claude/skills/gem-rubocop--style {2}->.*style}, detail)
+    end
+  end
+
+  def test_summary_uses_info_when_nothing_changed
+    Dir.mktmpdir do |dir|
+      marker(dir, ".claude")
+      spec = fake_gem(dir, "rubocop", skills: %w[style])
+      sync(dir, [spec]) # first run creates the link
+      logger = CapturingLogger.new
+      BundlerSkills::Synchronizer.new(
+        root: dir, config: BundlerSkills::Config.new(BundlerSkills::Config::DEFAULTS),
+        logger: logger, specs: [spec]
+      ).sync # second run keeps it -> nothing changed
+      assert_empty logger.confirmed
+      assert_equal 1, logger.infos.size
+    end
+  end
+
+  def test_summary_lists_pruned_skills_by_name_only
+    Dir.mktmpdir do |dir|
+      marker(dir, ".claude")
+      spec = fake_gem(dir, "rubocop", skills: %w[style])
+      sync(dir, [spec]) # create the link
+      logger = CapturingLogger.new
+      BundlerSkills::Synchronizer.new(
+        root: dir, config: BundlerSkills::Config.new(BundlerSkills::Config::DEFAULTS),
+        logger: logger, specs: [] # gem gone -> pruned
+      ).sync
+      detail = logger.infos.join("\n")
+      assert_match(/pruned:/, detail)
+      assert_match(%r{^\s+\.claude/skills/gem-rubocop--style$}, detail)
+      # No source path arrow for pruned (skill already gone), and unused
+      # category labels are omitted.
+      refute_match(/created:/, detail)
+      refute_match(/relinked:/, detail)
     end
   end
 
