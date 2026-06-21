@@ -165,6 +165,22 @@ reviewing any dependency.
 - POSIX symlinks are assumed; Windows is not supported yet.
 - Whether Cursor / Codex / Copilot follow symlinked `SKILL.md` during their own
   directory scans is not formally documented; verified working with Claude Code.
+- **`bundle update` that bumps `bundler-skills` itself raises
+  `Bundler::Plugin::Index::CommandConflict` (``Command(s) `skills` ... are
+  already registered``), and once it happens it recurs on every `bundle install`
+  / `bundle update`.** Bundler re-installs the new version and re-evaluates
+  `plugins.rb`, re-declaring the `skills` command while the old version's
+  registration is still in the plugin index — and Bundler tracks installed
+  plugins by name only, so the stale registration is never replaced. Recover with:
+
+  ```sh
+  bundler plugin uninstall bundler-skills
+  ```
+
+  The next `bundle install` re-adds it via the `plugin "bundler-skills"` line in
+  your `Gemfile`. This is a Bundler-level constraint affecting every plugin that
+  registers a command (`bundle skills` cannot be provided without one), and there
+  is no way for the plugin to avoid it safely from `plugins.rb`.
 
 ## Development
 
