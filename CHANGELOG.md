@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.5.0] - TBD
+
+### Changed (breaking)
+
+- Drop support for Ruby 3.1 and 3.2 (both EOL). Minimum required Ruby is now 3.3.
+
 ## [0.4.0] - 2026-06-27
 
 ### Changed (breaking)
