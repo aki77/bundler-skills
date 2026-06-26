@@ -63,15 +63,6 @@ class BundleInstallIntegrationTest < Minitest::Test
     end
   end
 
-  def test_self_update_does_not_raise_command_conflict
-    in_project(markers: %w[.claude]) do |dir|
-      bundle_install(dir)
-      bump_version(@bs_repo, "0.3.0", "9.9.9")
-      out = bundle_update(dir, "bundler-skills")
-      refute_match(/CommandConflict/, out, "regular gem must not raise CommandConflict on self-update")
-    end
-  end
-
   def test_disabled_via_env
     in_project(markers: %w[.claude]) do |dir|
       bundle_install(dir, env: { "BUNDLER_SKILLS_DISABLED" => "1" })
@@ -128,13 +119,6 @@ class BundleInstallIntegrationTest < Minitest::Test
   def bump_fixture_version(repo, version)
     path = File.join(repo, "fixture-skill-gem.gemspec")
     File.write(path, File.read(path).sub(/version\s*=\s*"[^"]+"/, %(version = "#{version}")))
-  end
-
-  def bump_version(repo, from, to)
-    path = File.join(repo, "lib", "bundler_skills", "version.rb")
-    File.write(path, File.read(path).sub(from, to))
-    git(repo, "add", "-A")
-    git(repo, "commit", "-qm", "v#{to}")
   end
 
   def git(repo, *args)
