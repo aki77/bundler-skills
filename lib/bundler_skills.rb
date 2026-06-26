@@ -9,7 +9,6 @@ require_relative "bundler_skills/agent_registry"
 require_relative "bundler_skills/linker"
 require_relative "bundler_skills/gitignore_updater"
 require_relative "bundler_skills/synchronizer"
-require_relative "bundler_skills/hook"
 
 module BundlerSkills
 end

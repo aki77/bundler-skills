@@ -9,10 +9,10 @@ Gem::Specification.new do |spec|
   spec.email = ["aki77@users.noreply.github.com"]
 
   spec.summary = "Auto-symlink AI agent skills bundled in your gems after bundle install."
-  spec.description = "A Bundler plugin that discovers skills/ directories bundled in your " \
-                     "dependency gems and symlinks them into your project's agent skill " \
-                     "directories (.claude/skills, .agents/skills) on bundle install. " \
-                     "The Ruby/Bundler counterpart of antfu/skills-npm."
+  spec.description = "A gem that discovers skills/ directories bundled in your dependency " \
+                     "gems and symlinks them into your project's agent skill directories " \
+                     "(.claude/skills, .agents/skills) on bundle install, via a RubyGems " \
+                     "post_install hook. The Ruby/Bundler counterpart of antfu/skills-npm."
   spec.homepage = "https://github.com/aki77/bundler-skills"
   spec.license = "MIT"
   spec.required_ruby_version = ">= 3.1"
@@ -22,14 +22,17 @@ Gem::Specification.new do |spec|
   spec.metadata["changelog_uri"] = "#{spec.homepage}/blob/main/CHANGELOG.md"
   spec.metadata["rubygems_mfa_required"] = "true"
 
-  # plugins.rb MUST be packaged for Bundler to recognize this as a plugin.
+  # lib/rubygems_plugin.rb (matched by lib/**/*.rb) is the RubyGems plugin entry
+  # point; exe/skills is the manual `bundle exec skills` command.
   spec.files = Dir[
-    "plugins.rb",
     "lib/**/*.rb",
+    "exe/**/*",
     "README.md",
     "PROPOSAL.md",
     "CHANGELOG.md",
     "LICENSE*"
   ]
+  spec.bindir = "exe"
+  spec.executables = ["skills"]
   spec.require_paths = ["lib"]
 end

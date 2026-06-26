@@ -2,6 +2,31 @@
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-06-27
+
+### Changed (breaking)
+
+- **bundler-skills is now a regular gem, not a Bundler plugin.** Install it as
+  `gem "bundler-skills"` (recommended: in the `development` group) instead of
+  `plugin "bundler-skills"`. This removes the `Bundler::Plugin::Index::CommandConflict`
+  that occurred (and recurred on every `bundle` run until `bundler plugin
+  uninstall`) whenever `bundle update` bumped bundler-skills itself.
+- Syncing now runs from a RubyGems `Gem.post_install` hook
+  (`lib/rubygems_plugin.rb`): when a gem is actually installed during
+  `bundle install` / `bundle update`, only **that gem's** skills are linked, and
+  only that gem's own stale links are pruned (other gems are untouched). A
+  cached `bundle install` that installs nothing does no work.
+- The manual command moved from the Bundler subcommand `bundle skills` to the
+  plain executable **`bundle exec skills`** (`sync` / `list` / `clean` / `init`,
+  with `--dry-run`). `skills sync` scans all gems and prunes all stale links.
+
+### Removed
+
+- Production / CI auto-detection (`RAILS_ENV`/`RACK_ENV=production`, `CI`) and the
+  `enabled:` config key / `BUNDLER_SKILLS_ENABLED` override. With a
+  development-group install the gem isn't present in production/CI anyway. The
+  only switch left is `BUNDLER_SKILLS_DISABLED`.
+
 ## [0.3.0] - 2026-06-21
 
 ### Changed

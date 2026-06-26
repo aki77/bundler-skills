@@ -36,14 +36,20 @@ module BundlerSkills
     end
 
     # @param skills [Array<DiscoveredSkill>]
+    # @param prune_scope [Symbol, Array<String>, nil] which stale links to prune:
+    #   :all (default)         -> every gem-*--* link we own (full sync)
+    #   [prefix, ...]          -> only links whose basename starts with one of the
+    #                             given prefixes, e.g. "gem-<name>--" (single-gem sync)
+    #   nil                    -> prune nothing
+    #   Pruning still honors @config.cleanup? — when cleanup is off nothing is pruned.
     # @return [Result]
-    def link(skills)
+    def link(skills, prune_scope: :all)
       result = Result.new
       link_names = skills.map(&:link_name)
 
       ensure_dir
       skills.each { |skill| link_one(skill, result) }
-      prune_stale(link_names, result) if @config.cleanup?
+      prune_stale(link_names, result, prune_scope) if @config.cleanup? && prune_scope
       result
     end
 
@@ -97,15 +103,24 @@ module BundlerSkills
 
     # Remove gem-*--* symlinks we own that are no longer in the discovery set.
     # Real directories, other prefixes, and unmanaged symlinks are left alone.
-    def prune_stale(valid_link_names, result)
+    # When +scope+ is an array of prefixes, only links whose basename starts with
+    # one of them are considered (so a single-gem sync never touches other gems).
+    def prune_stale(valid_link_names, result, scope = :all)
       Dir.glob(File.join(@skills_dir, STALE_GLOB)).each do |path|
         name = File.basename(path)
         next if valid_link_names.include?(name)
+        next unless in_scope?(name, scope)
         next unless File.symlink?(path) # only prune our own symlinks
 
         remove(path)
         result.pruned << name
       end
+    end
+
+    def in_scope?(name, scope)
+      return true if scope == :all
+
+      Array(scope).any? { |prefix| name.start_with?(prefix) }
     end
 
     def replace_symlink(link_path, target)

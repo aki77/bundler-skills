@@ -25,7 +25,37 @@ module BundlerSkills
 
       links_by_dir = subdirs.to_h do |subdir|
         skills_dir = File.join(@root.to_s, subdir)
-        [subdir, Linker.new(skills_dir: skills_dir, config: @config, logger: @logger).link(skills)]
+        linker = Linker.new(skills_dir: skills_dir, config: @config, logger: @logger)
+        [subdir, linker.link(skills, prune_scope: :all)]
+      end
+
+      gitignore_changed = update_gitignore(subdirs)
+
+      log_summary(skills, agents, links_by_dir)
+      Result.new(
+        discovered: skills, agents: agents,
+        links_by_dir: links_by_dir, gitignore_changed: gitignore_changed
+      )
+    end
+
+    # Sync the skills of a SINGLE gem (used by the RubyGems post_install hook).
+    #
+    # Only links belonging to this gem (gem-<name>--*) are added/updated, and
+    # only this gem's stale links are pruned — every other gem's links are left
+    # untouched. So when a gem's new version drops or renames a skill, its old
+    # link is removed, but unrelated gems are never disturbed.
+    #
+    # @param spec [#name, #full_gem_path] a Gem::Specification (or compatible)
+    def sync_gem(spec)
+      skills = Discoverer.new(specs: [spec], config: @config, logger: @logger).discover
+      agents = AgentRegistry.resolve(@root, @config)
+      subdirs = AgentRegistry.output_subdirs(agents)
+      scope = ["#{DiscoveredSkill::LINK_PREFIX}#{spec.name}#{DiscoveredSkill::BOUNDARY}"]
+
+      links_by_dir = subdirs.to_h do |subdir|
+        skills_dir = File.join(@root.to_s, subdir)
+        linker = Linker.new(skills_dir: skills_dir, config: @config, logger: @logger)
+        [subdir, linker.link(skills, prune_scope: scope)]
       end
 
       gitignore_changed = update_gitignore(subdirs)
