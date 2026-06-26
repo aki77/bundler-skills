@@ -127,6 +127,40 @@ class LinkerTest < Minitest::Test
     end
   end
 
+  def test_scoped_prune_only_touches_matching_prefix
+    Dir.mktmpdir do |dir|
+      l = linker(dir)
+      l.link([skill(dir, "rubocop", "style"), skill(dir, "rspec", "matchers")])
+      # Re-sync rubocop alone, scoped to its prefix, with no skills -> only the
+      # rubocop link is pruned; rspec's link must survive.
+      result = linker(dir).link([], prune_scope: ["gem-rubocop--"])
+      assert_equal ["gem-rubocop--style"], result.pruned
+      refute File.exist?(link_path(dir, "gem-rubocop--style"))
+      assert File.symlink?(link_path(dir, "gem-rspec--matchers")), "other gem must be untouched"
+    end
+  end
+
+  def test_scoped_prune_does_not_confuse_hyphenated_gem_names
+    Dir.mktmpdir do |dir|
+      l = linker(dir)
+      # "rails" and "rails-html" share a leading "gem-rails" but differ at the
+      # double-hyphen boundary; scoping to "gem-rails--" must not catch the other.
+      l.link([skill(dir, "rails", "a"), skill(dir, "rails-html", "b")])
+      result = linker(dir).link([], prune_scope: ["gem-rails--"])
+      assert_equal ["gem-rails--a"], result.pruned
+      assert File.symlink?(link_path(dir, "gem-rails-html--b")), "rails-html must survive"
+    end
+  end
+
+  def test_prune_scope_nil_prunes_nothing
+    Dir.mktmpdir do |dir|
+      linker(dir).link([skill(dir, "rubocop", "style")])
+      result = linker(dir).link([], prune_scope: nil)
+      assert_empty result.pruned
+      assert File.symlink?(link_path(dir, "gem-rubocop--style"))
+    end
+  end
+
   def test_clean_all_removes_owned_symlinks_only
     Dir.mktmpdir do |dir|
       s = skill(dir, "rubocop", "style")

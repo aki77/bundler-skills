@@ -5,7 +5,6 @@ module BundlerSkills
   #
   # The file is optional: a missing file yields an all-defaults Config so the
   # hook works out of the box. Supported keys:
-  #   enabled    nil(auto) | true | false | [env names]
   #   agents     nil(auto-detect) | "*" | [keys] | "key"
   #   gitignore  bool (default true)
   #   cleanup    bool (default true) — prune stale gem-*--* links
@@ -17,7 +16,6 @@ module BundlerSkills
     CONFIG_FILENAME = "bundler-skills.yml"
 
     DEFAULTS = {
-      "enabled" => nil,
       "agents" => nil,
       "gitignore" => true,
       "cleanup" => true,
@@ -47,13 +45,6 @@ module BundlerSkills
 
     def initialize(data)
       @data = data
-    end
-
-    # nil | true | false | Array<String>. A bare string env name is normalized
-    # to a one-element array so `enabled: development` behaves like a list.
-    def enabled
-      value = @data["enabled"]
-      value.is_a?(String) ? [value] : value
     end
 
     # nil (auto-detect) | Array<String>. A bare string key is wrapped so

@@ -34,6 +34,18 @@ class SynchronizerTest < Minitest::Test
     FakeSpec.new(name, "1.0.0", path)
   end
 
+  # Rebuilds a gem's dir with a new skill set (simulates a version bump that
+  # added/removed skills), keeping the same gem path.
+  def fake_gem_replacing(root, name, skills:)
+    path = File.join(root, "gems", name)
+    FileUtils.rm_rf(File.join(path, "skills"))
+    fake_gem(root, name, skills: skills)
+  end
+
+  def synchronizer(root, specs, config: BundlerSkills::Config.new(BundlerSkills::Config::DEFAULTS))
+    BundlerSkills::Synchronizer.new(root: root, config: config, logger: nil, specs: specs)
+  end
+
   def marker(root, name)
     FileUtils.mkdir_p(File.join(root, name))
   end
@@ -201,6 +213,41 @@ class SynchronizerTest < Minitest::Test
       # category labels are omitted.
       refute_match(/created:/, detail)
       refute_match(/relinked:/, detail)
+    end
+  end
+
+  def test_sync_gem_links_only_that_gem_and_keeps_others
+    Dir.mktmpdir do |dir|
+      marker(dir, ".claude")
+      rubocop = fake_gem(dir, "rubocop", skills: %w[style])
+      rspec = fake_gem(dir, "rspec", skills: %w[matchers])
+      sync(dir, [rubocop, rspec]) # full sync creates both
+
+      # Re-install rspec only (e.g. its post_install fires): rubocop's link stays.
+      result = synchronizer(dir, [rspec]).sync_gem(rspec)
+      assert File.symlink?(File.join(dir, ".claude", "skills", "gem-rspec--matchers"))
+      assert File.symlink?(File.join(dir, ".claude", "skills", "gem-rubocop--style")),
+             "other gem's link must be preserved"
+      assert_empty links_for(result, ".claude/skills").pruned
+    end
+  end
+
+  def test_sync_gem_prunes_only_that_gems_removed_skills
+    Dir.mktmpdir do |dir|
+      marker(dir, ".claude")
+      rubocop_v1 = fake_gem(dir, "rubocop", skills: %w[style lint])
+      rspec = fake_gem(dir, "rspec", skills: %w[matchers])
+      sync(dir, [rubocop_v1, rspec]) # creates style, lint, matchers
+
+      # rubocop v2 drops the "lint" skill; its post_install fires with the new spec.
+      rubocop_v2 = fake_gem_replacing(dir, "rubocop", skills: %w[style])
+      result = synchronizer(dir, [rubocop_v2]).sync_gem(rubocop_v2)
+
+      assert_equal ["gem-rubocop--lint"], links_for(result, ".claude/skills").pruned
+      refute File.exist?(File.join(dir, ".claude", "skills", "gem-rubocop--lint"))
+      assert File.symlink?(File.join(dir, ".claude", "skills", "gem-rubocop--style"))
+      assert File.symlink?(File.join(dir, ".claude", "skills", "gem-rspec--matchers")),
+             "unrelated gem must be untouched by a scoped sync"
     end
   end
 

@@ -10,7 +10,6 @@ class ConfigTest < Minitest::Test
 
   def test_defaults
     c = cfg
-    assert_nil c.enabled
     assert_nil c.agents
     assert c.gitignore?
     assert c.cleanup?
@@ -63,7 +62,7 @@ class ConfigTest < Minitest::Test
   def test_load_missing_file_returns_defaults
     Dir.mktmpdir do |dir|
       c = BundlerSkills::Config.load(root: dir)
-      assert_nil c.enabled
+      assert_nil c.agents
       assert c.gitignore?
     end
   end
@@ -93,21 +92,9 @@ class ConfigTest < Minitest::Test
     assert_equal %w[claude cursor], cfg("agents" => %w[claude cursor]).agents
   end
 
-  def test_enabled_string_becomes_list
-    assert_equal ["development"], cfg("enabled" => "development").enabled
-  end
-
-  def test_enabled_bool_and_nil_passthrough
-    assert_nil cfg.enabled
-    assert_equal true, cfg("enabled" => true).enabled
-    assert_equal false, cfg("enabled" => false).enabled
-    assert_equal %w[development staging], cfg("enabled" => %w[development staging]).enabled
-  end
-
-  def test_load_reads_agents_and_enabled
+  def test_load_reads_agents_and_flags
     Dir.mktmpdir do |dir|
       File.write(File.join(dir, "bundler-skills.yml"), <<~YAML)
-        enabled: development
         agents:
           - claude
           - cursor
@@ -115,7 +102,6 @@ class ConfigTest < Minitest::Test
         recursive: true
       YAML
       c = BundlerSkills::Config.load(root: dir)
-      assert_equal ["development"], c.enabled
       assert_equal %w[claude cursor], c.agents
       refute c.cleanup?
       assert c.recursive?

@@ -1,7 +1,7 @@
 # bundler-skills
 
-A Bundler plugin that auto-symlinks **AI agent skills bundled in your gems**
-into your project after `bundle install`. The Ruby/Bundler counterpart of
+A gem that auto-symlinks **AI agent skills bundled in your gems** into your
+project on `bundle install`. The Ruby/Bundler counterpart of
 [antfu/skills-npm](https://github.com/antfu/skills-npm).
 
 Gems ship `skills/<name>/SKILL.md`; your project links them into the right agent
@@ -10,15 +10,20 @@ team gets them just by running `bundle install`.
 
 ## How it works
 
-After `bundle install` / `bundle update`, the plugin:
+bundler-skills ships a RubyGems `post_install` hook (via
+`lib/rubygems_plugin.rb`). Whenever a gem is **actually installed** during
+`bundle install` / `bundle update`, the hook runs for that gem and:
 
-1. Scans your resolved dependency gems for `skills/*/SKILL.md`.
+1. Scans **that gem** for `skills/*/SKILL.md`.
 2. Detects which agents you use (by marker directories) and symlinks each skill
    into the right place, named `gem-<gem>--<skill>`.
-3. Adds the generated symlink patterns to `.gitignore` (they are machine-local).
+3. Prunes that gem's own stale links (so a version that renames or drops a skill
+   updates correctly), leaving every other gem's links untouched.
+4. Adds the generated symlink patterns to `.gitignore` (they are machine-local).
 
-It is **disabled automatically in production/CI** — skills are a development-time
-concern.
+A `bundle install` that installs nothing (everything already cached) does no
+work — only freshly installed gems are processed. To re-sync everything at once
+(e.g. after removing a gem), run `bundle exec skills` (see below).
 
 ### Supported agents
 
@@ -36,13 +41,16 @@ marker exists, so nothing is created in projects that don't use these tools.
 
 ## Installation
 
-Add the plugin to your `Gemfile` (this is the recommended, team-wide way):
+Add the gem to your `Gemfile`, in the `development` group (skills are a
+development-time concern; this is the recommended, team-wide way):
 
 ```ruby
 # Gemfile
 source "https://rubygems.org"
 
-plugin "bundler-skills"
+group :development do
+  gem "bundler-skills"
+end
 
 gem "some-gem-that-ships-skills"
 ```
@@ -53,58 +61,53 @@ Then:
 bundle install
 ```
 
-That's it. On install you'll see something like:
+That's it. When a skill-bearing gem is installed you'll see something like:
 
 ```
-[bundler-skills] 3 skill(s) discovered, 3 linked, 0 relinked, 0 pruned across 1 dir(s) (agents: claude)
+[bundler-skills] 1 skill(s) discovered, 1 linked, 0 relinked, 0 pruned across 1 dir(s) (agents: claude)
+  created:
+    .claude/skills/gem-rubocop--style  ->  /path/to/gems/rubocop/skills/style
 ```
+
+> In production / CI you typically run `bundle install` with the `development`
+> group excluded (`bundle config set --local without development`), so the gem
+> isn't even present and nothing runs. You can also force it off anywhere with
+> `BUNDLER_SKILLS_DISABLED=1`.
 
 When a run actually changes something (links created, relinked after a gem
 update, or stale links pruned) the summary is printed in green so it stands out;
 a run with nothing to do prints the same line in plain text. A changed run also
 lists each affected skill, grouped by kind, with the path to its `SKILL.md` so
-you can review the (third-party) skill contents now linked into your project:
+you can review the (third-party) skill contents now linked into your project.
 
-```
-[bundler-skills] 3 skill(s) discovered, 2 linked, 1 relinked, 0 pruned across 1 dir(s) (agents: claude)
-  created:
-    .claude/skills/gem-rubocop--style  ->  /path/to/gems/rubocop/skills/style
-    .claude/skills/gem-rubocop--lint   ->  /path/to/gems/rubocop/skills/lint
-  relinked:
-    .claude/skills/gem-rspec--matchers  ->  /path/to/gems/rspec/skills/matchers
-```
+## The `bundle exec skills` command
 
-> Alternatively, install it globally with `bundle plugin install bundler-skills`.
-> The `Gemfile` approach is preferred because it propagates to the whole team.
-
-## The `bundle skills` command
-
-`bundle install` triggers syncing automatically, but `bundle lock` does **not**
-run plugin hooks ([rubygems#7542](https://github.com/ruby/rubygems/issues/7542)).
-Use the command to sync manually, or to inspect/clean:
+The `post_install` hook only fires for gems that are freshly installed. To
+re-sync everything at once — after removing a gem, after `bundle lock` (which
+installs nothing), or just to inspect/clean — run the command:
 
 ```sh
-bundle skills          # (or: bundle skills sync) re-create symlinks
-bundle skills list     # show discovered skills and target agents (no changes)
-bundle skills clean    # remove all gem-*--* symlinks this plugin created
-bundle skills init     # create a bundler-skills.yml config file with defaults
-bundle skills <cmd> --dry-run   # show what would change without writing
+bundle exec skills          # (or: skills sync) re-scan ALL gems and (re)create symlinks
+bundle exec skills list     # show discovered skills and target agents (no changes)
+bundle exec skills clean    # remove all gem-*--* symlinks this gem created
+bundle exec skills init     # create a bundler-skills.yml config file with defaults
+bundle exec skills <cmd> --dry-run   # show what would change without writing
 ```
 
-Unlike the automatic hook, the command always runs (it ignores the
-production/CI guard) since invoking it is an explicit action.
+Unlike the automatic hook, `skills sync` scans every resolved gem and prunes any
+stale `gem-*--*` link (so it also cleans up after a removed gem). It always runs
+and ignores `BUNDLER_SKILLS_DISABLED`, since invoking it is an explicit action.
 
 ## Configuration
 
 All optional. Create `bundler-skills.yml` in your project root:
 
 ```yaml
-enabled:                    # nil (auto) | false (off) | [development] (env list)
 agents:                     # omit = auto-detect; or list: [claude, cursor]; or "*"
   - claude
   - cursor
 gitignore: true             # manage .gitignore (default true)
-cleanup: true               # prune stale gem-*--* links when a gem is removed (default true)
+cleanup: true               # prune stale gem-*--* links (default true)
 recursive: false            # also scan skills/**/SKILL.md (default false)
 include:                    # only these gems (empty = all). fnmatch on "gem" or "gem/skill"
   - rubocop
@@ -115,24 +118,15 @@ exclude:                    # exclude these (wins over include)
 
 Notes:
 
-- Skills from `development`/`test` group gems are included by default — those are
-  exactly the gems (linters, test helpers) that ship skills. They are only
-  excluded when your environment sets `bundle config set without development`
-  (e.g. production), in which case skills aren't wanted anyway.
 - The link target is the gem's path on your machine; that's why the symlinks are
   gitignored and re-created on each machine's `bundle install`.
 
 ### Disabling
 
-The hook is off automatically when any of these hold:
-
-- `BUNDLER_SKILLS_DISABLED` is set to a truthy value
-- `RAILS_ENV` / `RACK_ENV` is `production`
-- `CI` is truthy
-- `bundler-skills.yml` has `enabled: false`, or `enabled: [..]` not listing the
-  current env
-
-Force it on with `BUNDLER_SKILLS_ENABLED=1` or `enabled: true`.
+Set `BUNDLER_SKILLS_DISABLED` to a truthy value (`1`/`true`/`yes`/`on`) to turn
+the `post_install` hook off. There is no production/CI auto-detection: with the
+recommended `development`-group install the gem isn't present in production/CI in
+the first place. The manual `bundle exec skills` command ignores this switch.
 
 ## Naming: `gem-<gem>--<skill>`
 
@@ -155,7 +149,7 @@ See [PROPOSAL.md](PROPOSAL.md) for the distribution convention. In short: put
 
 ## Trust boundary
 
-Skills bundled in third-party gems are third-party content. This plugin only
+Skills bundled in third-party gems are third-party content. This gem only
 **creates symlinks** to them — it never executes their contents. Reviewing what a
 skill instructs your agent to do is the user's responsibility, the same as
 reviewing any dependency.
@@ -165,22 +159,11 @@ reviewing any dependency.
 - POSIX symlinks are assumed; Windows is not supported yet.
 - Whether Cursor / Codex / Copilot follow symlinked `SKILL.md` during their own
   directory scans is not formally documented; verified working with Claude Code.
-- **`bundle update` that bumps `bundler-skills` itself raises
-  `Bundler::Plugin::Index::CommandConflict` (``Command(s) `skills` ... are
-  already registered``), and once it happens it recurs on every `bundle install`
-  / `bundle update`.** Bundler re-installs the new version and re-evaluates
-  `plugins.rb`, re-declaring the `skills` command while the old version's
-  registration is still in the plugin index — and Bundler tracks installed
-  plugins by name only, so the stale registration is never replaced. Recover with:
-
-  ```sh
-  bundler plugin uninstall bundler-skills
-  ```
-
-  The next `bundle install` re-adds it via the `plugin "bundler-skills"` line in
-  your `Gemfile`. This is a Bundler-level constraint affecting every plugin that
-  registers a command (`bundle skills` cannot be provided without one), and there
-  is no way for the plugin to avoid it safely from `plugins.rb`.
+- The `post_install` hook only fires for gems that are **actually installed**. A
+  cached `bundle install` (nothing to install) and `bundle lock` do no syncing —
+  run `bundle exec skills` to re-sync on demand.
+- When a gem is **removed**, no hook fires for it, so its `gem-*--*` links linger
+  until the next `bundle exec skills` (full sync prunes them).
 
 ## Development
 
