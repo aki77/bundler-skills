@@ -104,6 +104,12 @@ module BundlerSkills
     def log_summary(skills, agents, links_by_dir)
       return unless @logger
 
+      # Nothing discovered and nothing changed -> stay silent. The post_install
+      # hook fires for EVERY installed gem, most of which ship no skills;
+      # emitting a "0 skill(s) discovered, 0 linked ..." line for each is noise.
+      changed = links_by_dir.values.any?(&:changed?)
+      return if skills.empty? && !changed
+
       if agents.empty?
         @logger.info(
           "[bundler-skills] #{skills.size} skill(s) discovered but no agent detected " \
@@ -123,7 +129,7 @@ module BundlerSkills
 
       # Make a run that actually changed something stand out (green) so it is
       # noticed amid bundle's output; an unchanged run stays plain.
-      if links_by_dir.values.any?(&:changed?)
+      if changed
         @logger.confirm(message)
         # List the skills that changed so the user can review the (third-party)
         # SKILL.md contents now linked into their project. created/relinked are
