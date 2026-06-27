@@ -3,3 +3,8 @@
 *.gem
 .bundle/
 /Gemfile.lock
+
+# >>> bundler-skills managed >>>
+.claude/skills/gem-*
+.agents/skills/gem-*
+# <<< bundler-skills managed <<<

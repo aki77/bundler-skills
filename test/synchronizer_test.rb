@@ -196,6 +196,23 @@ class SynchronizerTest < Minitest::Test
     end
   end
 
+  # The post_install hook fires for EVERY installed gem, most of which ship no
+  # skills. Such a run discovers nothing and changes nothing, so it must stay
+  # completely silent instead of printing "0 skill(s) discovered, 0 linked ...".
+  def test_summary_silent_when_no_skills_and_no_change
+    Dir.mktmpdir do |dir|
+      marker(dir, ".claude")
+      spec = fake_gem(dir, "plainlib", skills: [])
+      logger = CapturingLogger.new
+      BundlerSkills::Synchronizer.new(
+        root: dir, config: BundlerSkills::Config.new(BundlerSkills::Config::DEFAULTS),
+        logger: logger, specs: [spec]
+      ).sync_gem(spec)
+      assert_empty logger.confirmed
+      assert_empty logger.infos
+    end
+  end
+
   def test_summary_lists_pruned_skills_by_name_only
     Dir.mktmpdir do |dir|
       marker(dir, ".claude")

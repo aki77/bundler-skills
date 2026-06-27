@@ -2,11 +2,18 @@
 
 ## [Unreleased]
 
-## [0.5.0] - TBD
+## [0.5.0] - 2026-06-27
 
 ### Changed (breaking)
 
 - Drop support for Ruby 3.1 and 3.2 (both EOL). Minimum required Ruby is now 3.3.
+
+### Changed
+
+- The post-install summary now stays silent when a run discovers no skills and
+  changes nothing. The `Gem.post_install` hook fires for every installed gem,
+  most of which ship no skills, so the previous `0 skill(s) discovered, 0 linked
+  ...` line was pure noise on each one.
 
 ## [0.4.0] - 2026-06-27
 
