@@ -8,10 +8,7 @@ require "open3"
 
 # End-to-end: runs a real `bundle install` in a temp project. bundler-skills is
 # now a regular gem whose lib/rubygems_plugin.rb registers a Gem.post_install
-# hook; the manual command is exe/bundler-skills.
-#
-# The hook only fires for a project that has opted in with a bundler-skills.yml
-# in its root, so every fixture project writes one.
+# hook; the manual command is exe/skills (`bundle exec skills`).
 #
 # Both bundler-skills and the fixture gem are installed from GIT sources. This
 # matters: path sources are not "installed" (extracted) by Bundler, so the
@@ -43,22 +40,9 @@ class BundleInstallIntegrationTest < Minitest::Test
       # gitignore written
       assert_includes File.read(File.join(dir, ".gitignore")), ".claude/skills/gem-*"
 
-      # manual command works via `bundle exec bundler-skills`
-      list = bundle_exec(dir, "bundler-skills", "list")
+      # manual command works via `bundle exec skills`
+      list = bundle_exec(dir, "skills", "list")
       assert_match(/gem-fixture-skill-gem--demo/, list)
-    end
-  end
-
-  # Regression for the global-install scope bug: a project WITHOUT a
-  # bundler-skills.yml must be left untouched even though a skill-bearing gem is
-  # installed (the hook fires but sees no opt-in).
-  def test_no_opt_in_leaves_project_untouched
-    in_project(markers: %w[.claude], opt_in: false) do |dir|
-      bundle_install(dir)
-      refute File.exist?(File.join(dir, ".claude", "skills", "gem-fixture-skill-gem--demo")),
-             "no bundler-skills.yml -> nothing should be linked"
-      refute File.exist?(File.join(dir, ".gitignore")),
-             "no bundler-skills.yml -> .gitignore must not be touched"
     end
   end
 
@@ -89,13 +73,10 @@ class BundleInstallIntegrationTest < Minitest::Test
 
   private
 
-  def in_project(markers:, opt_in: true)
+  def in_project(markers:)
     dir = File.join(@tmp, "project-#{markers.join('_')}-#{rand(10_000)}")
     markers.each { |m| FileUtils.mkdir_p(File.join(dir, m)) }
     write_gemfile(dir)
-    # Opt in by placing a bundler-skills.yml in the project root (empty = all
-    # defaults). Without it the post_install hook is a no-op for this project.
-    File.write(File.join(dir, BundlerSkills::Config::CONFIG_FILENAME), "") if opt_in
     yield dir
   end
 
@@ -119,8 +100,7 @@ class BundleInstallIntegrationTest < Minitest::Test
       from = File.join(src, e)
       FileUtils.cp_r(from, File.join(repo, e)) if File.exist?(from)
     end
-    exe = File.join(repo, "exe", "bundler-skills")
-    FileUtils.chmod(0o755, exe) if File.exist?(exe)
+    FileUtils.chmod(0o755, File.join(repo, "exe", "skills")) if File.exist?(File.join(repo, "exe", "skills"))
     git(repo, "init", "-q")
     git(repo, "config", "user.email", "t@e.com")
     git(repo, "config", "user.name", "t")

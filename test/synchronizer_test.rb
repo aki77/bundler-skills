@@ -137,19 +137,6 @@ class SynchronizerTest < Minitest::Test
     end
   end
 
-  # Even with an agent marker present, a gem that ships no skills must not cause
-  # a .gitignore write. Guards against the managed block landing in projects
-  # whose gems carry no skills.
-  def test_no_gitignore_when_no_skills_discovered
-    Dir.mktmpdir do |dir|
-      marker(dir, ".claude")
-      spec = fake_gem(dir, "plainlib", skills: [])
-      result = sync(dir, [spec])
-      refute result.gitignore_changed
-      refute File.exist?(File.join(dir, ".gitignore"))
-    end
-  end
-
   def test_prunes_when_gem_removed
     Dir.mktmpdir do |dir|
       marker(dir, ".claude")

@@ -29,7 +29,7 @@ module BundlerSkills
         [subdir, linker.link(skills, prune_scope: :all)]
       end
 
-      gitignore_changed = update_gitignore(subdirs, skills)
+      gitignore_changed = update_gitignore(subdirs)
 
       log_summary(skills, agents, links_by_dir)
       Result.new(
@@ -58,7 +58,7 @@ module BundlerSkills
         [subdir, linker.link(skills, prune_scope: scope)]
       end
 
-      gitignore_changed = update_gitignore(subdirs, skills)
+      gitignore_changed = update_gitignore(subdirs)
 
       log_summary(skills, agents, links_by_dir)
       Result.new(
@@ -90,13 +90,9 @@ module BundlerSkills
 
     private
 
-    def update_gitignore(subdirs, skills)
+    def update_gitignore(subdirs)
       return false unless @config.gitignore?
-      # Nothing to link (no agent dir, or no discovered skills) -> don't write
-      # the managed block. This is the sole guard on the `bundler-skills sync`
-      # (CLI) path, which has no opt-in gate: it keeps an empty managed block
-      # out of a project whose gems ship no skills.
-      return false if subdirs.empty? || skills.empty?
+      return false if subdirs.empty?
 
       patterns = subdirs.map { |subdir| "#{subdir}/#{DiscoveredSkill::LINK_PREFIX}*" }
       GitignoreUpdater.new(

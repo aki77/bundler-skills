@@ -23,7 +23,7 @@ Gem::Specification.new do |spec|
   spec.metadata["rubygems_mfa_required"] = "true"
 
   # lib/rubygems_plugin.rb (matched by lib/**/*.rb) is the RubyGems plugin entry
-  # point; exe/bundler-skills is the manual `bundler-skills` command.
+  # point; exe/skills is the manual `bundle exec skills` command.
   spec.files = Dir[
     "lib/**/*.rb",
     "exe/**/*",
@@ -33,6 +33,6 @@ Gem::Specification.new do |spec|
     "LICENSE*"
   ]
   spec.bindir = "exe"
-  spec.executables = ["bundler-skills"]
+  spec.executables = ["skills"]
   spec.require_paths = ["lib"]
 end

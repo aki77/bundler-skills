@@ -2,28 +2,6 @@
 
 ## [Unreleased]
 
-### Changed (breaking)
-
-- **Opt-in is now the presence of a `bundler-skills.yml` in the project root**,
-  not membership in the `Gemfile`. bundler-skills is installed **globally**
-  (`gem install bundler-skills`) and activated per project by that file. This
-  fixes the real bug where the global RubyGems `post_install` hook fired for
-  *every* project sharing the Ruby — including ones not using bundler-skills at
-  all — and wrote its managed block into their `.gitignore`. Projects without a
-  `bundler-skills.yml` are now left completely untouched. No backward
-  compatibility: the old "add it to the Gemfile and it just works" behavior is
-  gone.
-- **Renamed the executable `skills` → `bundler-skills`** to avoid clashing with
-  other tools now that it is installed globally on PATH. Invoke it as
-  `bundler-skills [sync|list|clean|init]` (no `bundle exec` needed).
-
-### Fixed
-
-- The global executable now `require`s `bundler`, so running `bundler-skills`
-  directly (not via `bundle exec`) no longer crashes resolving `Bundler.root`.
-- `.gitignore` is left untouched when a run discovers no skills (belt-and-braces
-  against writing the managed block into projects with no skill-bearing gems).
-
 ## [0.5.0] - 2026-06-27
 
 ### Changed (breaking)
