@@ -5,6 +5,8 @@ require "bundler"
 require "bundler_skills/cli"
 require "tmpdir"
 require "yaml"
+require "open3"
+require "fileutils"
 
 class CLITest < Minitest::Test
   class CapturingLogger
@@ -34,7 +36,7 @@ class CLITest < Minitest::Test
 
   def test_help_prints_usage_and_exits_zero
     assert_equal 0, @cli.run(["--help"])
-    assert_match(/Usage: bundle exec skills/, @logger.infos.join("\n"))
+    assert_match(/Usage: bundler-skills/, @logger.infos.join("\n"))
   end
 
   def test_unknown_subcommand_returns_nonzero
@@ -62,6 +64,32 @@ class CLITest < Minitest::Test
         assert_equal "agents:\n  - claude\n", File.read(path),
                      "existing config should not be overwritten"
       end
+    end
+  end
+
+  # Regression: the global executable is meant to run directly from PATH, not
+  # only via `bundle exec`. Its `require "bundler"` line must be present so that
+  # `Config.load(root: Bundler.root)` doesn't crash with an uninitialized
+  # constant. Run exe/bundler-skills in a subprocess with a clean env (no
+  # `bundle exec`, no inherited BUNDLE_GEMFILE) inside a real project.
+  def test_bare_execution_without_bundle_exec_works
+    exe = File.expand_path("../exe/bundler-skills", __dir__)
+    Dir.mktmpdir do |dir|
+      File.write(File.join(dir, "Gemfile"), "source 'https://rubygems.org'\n")
+      File.write(File.join(dir, BundlerSkills::Config::CONFIG_FILENAME), "")
+      FileUtils.mkdir_p(File.join(dir, ".claude"))
+
+      env = {
+        "BUNDLE_GEMFILE" => File.join(dir, "Gemfile"),
+        "RUBYLIB" => File.expand_path("../lib", __dir__)
+      }
+      out, status = Bundler.with_unbundled_env do
+        Open3.capture2e(env, RbConfig.ruby, exe, "list", chdir: dir)
+      end
+
+      assert status.success?, "bare `bundler-skills list` should exit 0:\n#{out}"
+      refute_match(/uninitialized constant.*Bundler/, out,
+                   "require \"bundler\" must be present so Bundler.root resolves")
     end
   end
 

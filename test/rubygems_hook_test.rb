@@ -22,7 +22,7 @@ class RubygemsHookTest < Minitest::Test
     ENV["BUNDLER_SKILLS_DISABLED"] = @saved
   end
 
-  def test_syncs_the_installed_gem_in_bundle_context
+  def test_syncs_the_installed_gem_when_opted_in
     with_project do |dir|
       installer = FakeInstaller.new(fake_gem(dir, "rubocop", %w[style]))
       BundlerSkills::RubygemsHook.install(installer)
@@ -40,15 +40,35 @@ class RubygemsHookTest < Minitest::Test
     end
   end
 
-  def test_skips_outside_bundle_context
+  def test_skips_when_not_opted_in
     Dir.mktmpdir do |dir|
-      # No Gemfile in dir -> not a bundle context.
+      # No bundler-skills.yml in dir -> project hasn't opted in.
       FileUtils.mkdir_p(File.join(dir, ".claude"))
       installer = FakeInstaller.new(fake_gem(dir, "rubocop", %w[style]))
       Bundler.stub(:root, Pathname.new(dir)) do
         BundlerSkills::RubygemsHook.install(installer)
       end
       refute File.exist?(File.join(dir, ".claude", "skills", "gem-rubocop--style"))
+    end
+  end
+
+  # Regression: bundler-skills is installed globally, so its post_install hook
+  # fires for every project's bundle install. A project with a Gemfile but NO
+  # bundler-skills.yml must be left completely untouched (no symlinks, and — the
+  # original bug — no .gitignore edits).
+  def test_skips_project_with_gemfile_but_no_yml
+    Dir.mktmpdir do |dir|
+      File.write(File.join(dir, "Gemfile"), "source 'https://rubygems.org'\n")
+      FileUtils.mkdir_p(File.join(dir, ".claude"))
+      installer = FakeInstaller.new(fake_gem(dir, "rubocop", %w[style]))
+      Bundler.stub(:root, Pathname.new(dir)) do
+        Bundler.stub(:ui, Bundler::UI::Silent.new) do
+          BundlerSkills::RubygemsHook.install(installer)
+        end
+      end
+      refute File.exist?(File.join(dir, ".claude", "skills", "gem-rubocop--style"))
+      refute File.exist?(File.join(dir, ".gitignore")),
+             ".gitignore must not be touched in a project that didn't opt in"
     end
   end
 
@@ -64,11 +84,12 @@ class RubygemsHookTest < Minitest::Test
 
   private
 
-  # Sets up a tmp project with a Gemfile (so bundle_context? is true) and a
-  # .claude marker, stubs Bundler.root/ui, and yields the dir.
+  # Sets up a tmp project that has opted in (bundler-skills.yml present, so
+  # opted_in? is true) and a .claude marker, stubs Bundler.root/ui, and yields
+  # the dir.
   def with_project
     Dir.mktmpdir do |dir|
-      File.write(File.join(dir, "Gemfile"), "source 'https://rubygems.org'\n")
+      File.write(File.join(dir, BundlerSkills::Config::CONFIG_FILENAME), "")
       FileUtils.mkdir_p(File.join(dir, ".claude"))
       Bundler.stub(:root, Pathname.new(dir)) do
         Bundler.stub(:ui, Bundler::UI::Silent.new) do

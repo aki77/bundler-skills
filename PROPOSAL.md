@@ -90,5 +90,5 @@ command while the previous registration was still in its plugin index, raising
 `Bundler::Plugin::Index::CommandConflict` — and it recurred on every subsequent
 `bundle` run until `bundler plugin uninstall`. This is unavoidable for any plugin
 that registers a command. Becoming a regular gem removes the command registration
-entirely (the manual command is now the plain executable `bundle exec skills`),
+entirely (the manual command is now the global executable `bundler-skills`),
 so the conflict cannot happen. See [README.md](README.md) for consumer details.
