@@ -14,7 +14,7 @@ module BundlerSkills
     # @param installer [#spec] a Gem::Installer (or anything exposing #spec)
     def install(installer)
       spec = installer.spec
-      return unless bundle_context?
+      return unless opted_in?
       return if Disabling.disabled?
 
       Synchronizer.new(config: Config.load).sync_gem(spec)
@@ -22,14 +22,16 @@ module BundlerSkills
       warn("[bundler-skills] skipped #{safe_name(installer)}: #{e.class}: #{e.message}")
     end
 
-    # Only act inside a `bundle install` for a project with a Gemfile. This
-    # keeps a plain `gem install foo` (no project context) from creating
-    # symlinks in whatever directory the user happens to be in.
-    def bundle_context?
+    # bundler-skills is installed globally into the Ruby, so its RubyGems
+    # post_install hook would otherwise fire for EVERY `bundle install` of every
+    # project sharing that Ruby. To scope it, we only act when the project has
+    # explicitly opted in by placing a `bundler-skills.yml` in its root. This
+    # keeps unrelated projects (no yml) completely untouched — no symlinks, no
+    # .gitignore edits.
+    def opted_in?
       return false unless defined?(Bundler)
 
-      root = Bundler.root
-      root.join("Gemfile").file? || root.join("gems.rb").file?
+      Config.present?(root: Bundler.root)
     rescue StandardError
       false
     end
