@@ -26,19 +26,9 @@ module BundlerSkills
       "exclude" => []
     }.freeze
 
-    # The bundler-skills.yml path for a project root. Single source of truth for
-    # where the config (and opt-in switch) lives.
-    def self.config_path(root: Bundler.root)
-      File.join(root.to_s, CONFIG_FILENAME)
-    end
-
-    # Whether the project has opted in by placing a bundler-skills.yml at root.
-    def self.present?(root: Bundler.root)
-      File.file?(config_path(root: root))
-    end
-
     def self.load(root: Bundler.root)
-      data = read_yaml(config_path(root: root))
+      path = File.join(root.to_s, CONFIG_FILENAME)
+      data = read_yaml(path)
       new(DEFAULTS.merge(data))
     end
 

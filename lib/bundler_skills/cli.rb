@@ -3,10 +3,9 @@
 require "optparse"
 
 module BundlerSkills
-  # `bundler-skills [sync|list|clean|init] [--dry-run]`
+  # `bundle exec skills [sync|list|clean|init] [--dry-run]`
   #
-  # The manual entry point (a plain global executable, not a Bundler plugin
-  # command). Works both directly on PATH and via `bundle exec`.
+  # The manual entry point (a plain executable, not a Bundler plugin command).
   # Unlike the post_install hook it ignores the disable switch — running it is an
   # explicit user action — and it reuses the same Synchronizer logic.
   class CLI
@@ -27,7 +26,7 @@ module BundlerSkills
     YAML
 
     USAGE = <<~HELP
-      Usage: bundler-skills [SUBCOMMAND] [--dry-run]
+      Usage: bundle exec skills [SUBCOMMAND] [--dry-run]
 
         sync   (default) discover skills and (re)create symlinks
         list   show discovered skills and target agents (no changes)
@@ -101,7 +100,7 @@ module BundlerSkills
     end
 
     def run_init
-      path = Config.config_path
+      path = File.join(Bundler.root.to_s, Config::CONFIG_FILENAME)
       if File.exist?(path)
         @logger.warn("[bundler-skills] #{Config::CONFIG_FILENAME} already exists")
         return
