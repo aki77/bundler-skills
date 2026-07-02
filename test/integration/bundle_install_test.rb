@@ -6,13 +6,12 @@ require "tmpdir"
 require "fileutils"
 require "open3"
 
-# End-to-end: runs a real `bundle install` in a temp project. bundler-skills is
-# now a regular gem whose lib/rubygems_plugin.rb registers a Gem.post_install
-# hook; the manual command is exe/skills (`bundle exec skills`).
+# End-to-end: runs a real `bundle install` in a temp project, then drives the
+# `bundle exec skills` command. bundler-skills is a regular gem (exe/skills);
+# there is no automatic hook, so nothing is linked until the command is run.
 #
-# Both bundler-skills and the fixture gem are installed from GIT sources. This
-# matters: path sources are not "installed" (extracted) by Bundler, so the
-# RubyGems post_install hook never fires for them — git/rubygems sources do.
+# Both bundler-skills and the fixture gem are installed from GIT sources (a
+# self-contained way to snapshot the repos into a throwaway project).
 class BundleInstallIntegrationTest < Minitest::Test
   REPO = File.expand_path("../..", __dir__)
   FIXTURE = File.expand_path("fixtures/fixture-skill-gem", __dir__)
@@ -28,9 +27,16 @@ class BundleInstallIntegrationTest < Minitest::Test
     FileUtils.remove_entry(@tmp) if @tmp && File.directory?(@tmp)
   end
 
-  def test_post_install_links_skills_and_command_works
+  def test_bundle_install_does_not_link_until_command_runs
     in_project(markers: %w[.claude]) do |dir|
-      out = bundle_install(dir)
+      bundle_install(dir)
+      # No automatic hook: `bundle install` alone links nothing.
+      refute File.exist?(File.join(dir, ".claude", "skills", "gem-fixture-skill-gem--demo")),
+             "bundle install must not link anything on its own"
+      refute File.exist?(File.join(dir, ".gitignore")),
+             "bundle install must not touch .gitignore on its own"
+
+      out = bundle_exec(dir, "skills")
       assert_match(/created:/, out)
 
       demo = File.join(dir, ".claude", "skills", "gem-fixture-skill-gem--demo")
@@ -40,34 +46,28 @@ class BundleInstallIntegrationTest < Minitest::Test
       # gitignore written
       assert_includes File.read(File.join(dir, ".gitignore")), ".claude/skills/gem-*"
 
-      # manual command works via `bundle exec skills`
+      # `bundle exec skills list` reports the linked skill
       list = bundle_exec(dir, "skills", "list")
       assert_match(/gem-fixture-skill-gem--demo/, list)
     end
   end
 
-  def test_scoped_prune_when_gem_skill_removed_keeps_other_gems
+  def test_prune_when_gem_skill_removed_keeps_other_skills
     in_project(markers: %w[.claude]) do |dir|
       bundle_install(dir)
+      bundle_exec(dir, "skills")
       assert File.symlink?(File.join(dir, ".claude", "skills", "gem-fixture-skill-gem--demo"))
       assert File.symlink?(File.join(dir, ".claude", "skills", "gem-fixture-skill-gem--other"))
 
       # New fixture version drops the "other" skill.
       drop_skill_and_bump(@fx_repo, "other", "0.2.0")
       bundle_update(dir, "fixture-skill-gem")
+      bundle_exec(dir, "skills") # re-sync: prunes the removed skill's stale link
 
       refute File.exist?(File.join(dir, ".claude", "skills", "gem-fixture-skill-gem--other")),
              "the removed skill's link should be pruned"
       assert File.symlink?(File.join(dir, ".claude", "skills", "gem-fixture-skill-gem--demo")),
              "the surviving skill's link should remain"
-    end
-  end
-
-  def test_disabled_via_env
-    in_project(markers: %w[.claude]) do |dir|
-      bundle_install(dir, env: { "BUNDLER_SKILLS_DISABLED" => "1" })
-      refute File.exist?(File.join(dir, ".claude", "skills", "gem-fixture-skill-gem--demo")),
-             "BUNDLER_SKILLS_DISABLED should suppress linking"
     end
   end
 
@@ -90,8 +90,7 @@ class BundleInstallIntegrationTest < Minitest::Test
     RB
   end
 
-  # Snapshot a source dir into a throwaway git repo (post_install fires for git
-  # sources but not path sources).
+  # Snapshot a source dir into a throwaway git repo.
   def git_repo_from(src, name, files: nil)
     repo = File.join(@tmp, name)
     FileUtils.mkdir_p(repo)
@@ -151,7 +150,7 @@ class BundleInstallIntegrationTest < Minitest::Test
   def run_bundle(dir, env, *args)
     clean_env = {
       "CI" => nil, "RAILS_ENV" => nil, "RACK_ENV" => nil,
-      "BUNDLER_SKILLS_DISABLED" => nil, "BUNDLE_GEMFILE" => nil
+      "BUNDLE_GEMFILE" => nil
     }.merge(git_env).merge(env)
     out, status = Bundler.with_unbundled_env do
       Open3.capture2e(clean_env, "bundle", *args, chdir: dir)

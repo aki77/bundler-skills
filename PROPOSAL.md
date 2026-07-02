@@ -76,19 +76,27 @@ even for gems like `rails-html-sanitizer`.
   linked too (the directory is symlinked as a whole), so reference relative
   files normally.
 
-## Why a RubyGems `post_install` hook (not a Bundler plugin)
+## Why an explicit command (not a Bundler plugin or a `post_install` hook)
 
-bundler-skills ships as a regular gem with a `lib/rubygems_plugin.rb` that
-registers a `Gem.post_install` hook. The hook **does** fire during
-`bundle install` for each gem that is actually installed (only `Gem.done_installing`
-is Bundler-skipped), so it is a reliable place to sync that gem's skills.
+bundler-skills is a regular gem that ships a plain executable (`bundle exec
+skills`). Syncing happens only when you run that command — it hooks into nothing.
 
-An earlier version was a Bundler plugin that registered a `bundle skills`
-command via `Bundler::Plugin::API.command`. That had a fatal flaw: when
-`bundle update` bumped bundler-skills itself, Bundler re-registered the `skills`
-command while the previous registration was still in its plugin index, raising
-`Bundler::Plugin::Index::CommandConflict` — and it recurred on every subsequent
-`bundle` run until `bundler plugin uninstall`. This is unavoidable for any plugin
-that registers a command. Becoming a regular gem removes the command registration
-entirely (the manual command is now the plain executable `bundle exec skills`),
-so the conflict cannot happen. See [README.md](README.md) for consumer details.
+Two earlier designs were tried and rejected:
+
+- **A Bundler plugin** that registered a `bundle skills` command via
+  `Bundler::Plugin::API.command`. When `bundle update` bumped bundler-skills
+  itself, Bundler re-registered the `skills` command while the previous
+  registration was still in its plugin index, raising
+  `Bundler::Plugin::Index::CommandConflict` — and it recurred on every
+  subsequent `bundle` run until `bundler plugin uninstall`. This is unavoidable
+  for any plugin that registers a command.
+- **A RubyGems `post_install` hook** (`lib/rubygems_plugin.rb` +
+  `Gem.post_install`). RubyGems auto-loads any `rubygems_plugin.rb` on the load
+  path, so once bundler-skills is installed anywhere in a Ruby, its hook is
+  loaded and evaluated for **every** `bundle install` of **every** project
+  sharing that Ruby — a global side effect that is hard to scope cleanly.
+
+Providing only a command removes both problems: there is no command
+registration to conflict, and nothing runs unless the user invokes it. Wire it
+into a git hook or a hook manager to run it automatically — see
+[README.md](README.md) for consumer details.

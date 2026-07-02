@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require_relative "bundler_skills/version"
-require_relative "bundler_skills/disabling"
 require_relative "bundler_skills/config"
 require_relative "bundler_skills/discovered_skill"
 require_relative "bundler_skills/discoverer"
