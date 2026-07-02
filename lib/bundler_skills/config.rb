@@ -3,8 +3,8 @@
 module BundlerSkills
   # Loads bundler-skills.yml and merges it with defaults.
   #
-  # The file is optional: a missing file yields an all-defaults Config so the
-  # hook works out of the box. Supported keys:
+  # The file is optional: a missing file yields an all-defaults Config.
+  # Supported keys:
   #   agents     nil(auto-detect) | "*" | [keys] | "key"
   #   gitignore  bool (default true)
   #   cleanup    bool (default true) — prune stale gem-*--* links

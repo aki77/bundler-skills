@@ -2,6 +2,22 @@
 
 ## [Unreleased]
 
+### Changed (breaking)
+
+- **Removed the RubyGems `post_install` hook entirely.** bundler-skills no
+  longer hooks into `bundle install`; skills are synced only when you run the
+  command (`bundle exec skills`). This removes the global side effect where the
+  hook was loaded and evaluated for every `bundle install` of every project
+  sharing the Ruby. Wire the command into a git hook (post-merge / post-checkout)
+  or a hook manager (husky / lefthook / overcommit) to run it automatically —
+  see the README.
+
+### Removed
+
+- `lib/rubygems_plugin.rb`, the `RubygemsHook` module, and the `Disabling`
+  module — including the `BUNDLER_SKILLS_DISABLED` environment variable (with no
+  hook there is nothing to disable).
+
 ## [0.5.0] - 2026-06-27
 
 ### Changed (breaking)

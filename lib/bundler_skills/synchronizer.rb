@@ -1,13 +1,12 @@
 # frozen_string_literal: true
 
 module BundlerSkills
-  # Orchestrates discovery -> linking across the resolved agents. Shared entry
-  # point for both the Hook (after-install-all) and the manual `bundle skills`
-  # command.
+  # Orchestrates discovery -> linking across the resolved agents. The entry
+  # point for the `bundle exec skills` command.
   #
   # Discovery runs once (agent-independent); linking runs once per distinct
-  # output directory (.claude/skills and/or .agents/skills). Phase 4 adds the
-  # .gitignore update.
+  # output directory (.claude/skills and/or .agents/skills), then the .gitignore
+  # is updated.
   class Synchronizer
     Result = Struct.new(:discovered, :agents, :links_by_dir, :gitignore_changed, keyword_init: true)
 
@@ -38,37 +37,8 @@ module BundlerSkills
       )
     end
 
-    # Sync the skills of a SINGLE gem (used by the RubyGems post_install hook).
-    #
-    # Only links belonging to this gem (gem-<name>--*) are added/updated, and
-    # only this gem's stale links are pruned — every other gem's links are left
-    # untouched. So when a gem's new version drops or renames a skill, its old
-    # link is removed, but unrelated gems are never disturbed.
-    #
-    # @param spec [#name, #full_gem_path] a Gem::Specification (or compatible)
-    def sync_gem(spec)
-      skills = Discoverer.new(specs: [spec], config: @config, logger: @logger).discover
-      agents = AgentRegistry.resolve(@root, @config)
-      subdirs = AgentRegistry.output_subdirs(agents)
-      scope = ["#{DiscoveredSkill::LINK_PREFIX}#{spec.name}#{DiscoveredSkill::BOUNDARY}"]
-
-      links_by_dir = subdirs.to_h do |subdir|
-        skills_dir = File.join(@root.to_s, subdir)
-        linker = Linker.new(skills_dir: skills_dir, config: @config, logger: @logger)
-        [subdir, linker.link(skills, prune_scope: scope)]
-      end
-
-      gitignore_changed = update_gitignore(subdirs)
-
-      log_summary(skills, agents, links_by_dir)
-      Result.new(
-        discovered: skills, agents: agents,
-        links_by_dir: links_by_dir, gitignore_changed: gitignore_changed
-      )
-    end
-
     # Discover skills and the agents/dirs that would receive them, without
-    # touching the filesystem. Used by `bundle skills list`.
+    # touching the filesystem. Used by `bundle exec skills list`.
     def plan
       skills = Discoverer.new(specs: @specs, config: @config, logger: @logger).discover
       agents = AgentRegistry.resolve(@root, @config)
@@ -79,7 +49,7 @@ module BundlerSkills
     end
 
     # Remove every gem-*--* symlink we own across all known output dirs.
-    # Used by `bundle skills clean`. Returns { subdir => [removed names] }.
+    # Used by `bundle exec skills clean`. Returns { subdir => [removed names] }.
     def clean
       AgentRegistry.all.map(&:skills_subdir).uniq.to_h do |subdir|
         skills_dir = File.join(@root.to_s, subdir)
@@ -104,9 +74,9 @@ module BundlerSkills
     def log_summary(skills, agents, links_by_dir)
       return unless @logger
 
-      # Nothing discovered and nothing changed -> stay silent. The post_install
-      # hook fires for EVERY installed gem, most of which ship no skills;
-      # emitting a "0 skill(s) discovered, 0 linked ..." line for each is noise.
+      # Nothing discovered and nothing changed -> stay silent. Most dependency
+      # gems ship no skills, so emitting a "0 skill(s) discovered, 0 linked ..."
+      # line when there is nothing to report is just noise.
       changed = links_by_dir.values.any?(&:changed?)
       return if skills.empty? && !changed
 

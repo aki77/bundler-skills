@@ -5,9 +5,8 @@ require "optparse"
 module BundlerSkills
   # `bundle exec skills [sync|list|clean|init] [--dry-run]`
   #
-  # The manual entry point (a plain executable, not a Bundler plugin command).
-  # Unlike the post_install hook it ignores the disable switch — running it is an
-  # explicit user action — and it reuses the same Synchronizer logic.
+  # The entry point (a plain executable, not a Bundler plugin command). Syncing
+  # happens only when this command is run — there is no automatic hook.
   class CLI
     INIT_TEMPLATE = <<~YAML
       # bundler-skills.yml — all keys are optional
